@@ -26,7 +26,7 @@ Target: Sun 15 Nov (Tour of Go can finish by Sun 22 Nov). Tick items off as you 
 - [x] `go mod init github.com/Pigoennn/<repo-name>`
 - [x] `.gitignore` covering `.env`, binaries and `node_modules/`
 - [x] Create the folder skeleton: `cmd/api`, `cmd/bot`, `internal/games`, `internal/docker`, `web`, `deploy`, `docs/decisions`
-- [ ] Write the first decision record: `docs/decisions/0001-go-backend.md`
+- [x] Write the first decision record: `docs/decisions/0001-go-backend.md`
 
 ## Learning Go
 
