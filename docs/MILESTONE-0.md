@@ -30,8 +30,8 @@ Target: Sun 15 Nov (Tour of Go can finish by Sun 22 Nov). Tick items off as you 
 
 ## Learning Go
 
-- [ ] Install Go (latest stable) on your dev machine, plus the Go extension for your editor
-- [ ] Tour of Go: basics, methods and interfaces (the most important part for the `Game` interface), concurrency
+- [x] Install Go (latest stable) on your dev machine, plus the Go extension for your editor
+- [x] Tour of Go: basics, methods and interfaces (the most important part for the `Game` interface), concurrency
 - [ ] Mini exercise: a tiny Go program that lists running containers with the Docker Go SDK
 
 ## Done when
