@@ -1,0 +1,18 @@
+# Secrets: never commit (Discord bot token, OAuth secret, playit key)
+.env
+*.env
+!.env.example
+
+# Go build output (`go build ./cmd/api` drops `api` in the repo root)
+/bin/
+/api
+/bot
+*.test
+*.out
+
+# Dashboard
+node_modules/
+web/dist/
+
+# Editor
+.obsidian/
