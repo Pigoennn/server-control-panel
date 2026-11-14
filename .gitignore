@@ -16,3 +16,6 @@ web/dist/
 
 # Editor
 .obsidian/
+
+# Claude Code local state (worktrees, local settings)
+.claude/
