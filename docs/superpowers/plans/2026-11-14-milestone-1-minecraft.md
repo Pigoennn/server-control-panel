@@ -249,7 +249,7 @@ No commit (nothing changed).
 
 - [ ] **Step 1: Create the tunnel**
 
-On the playit.gg dashboard, create a "Minecraft Java" tunnel for this agent pointing to local port `25565`. Note the public address.
+On the playit.gg dashboard, create a "Minecraft Java" tunnel for this agent pointing to local address `127.0.0.1`, port `25565` (not `localhost`: it resolves to IPv6 `::1` first, where nothing listens). Note the public address.
 
 - [ ] **Step 2: A non-whitelisted account is refused**
 
