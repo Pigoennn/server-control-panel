@@ -1,0 +1,59 @@
+# Docker socket proxy for the control API. See docs/decisions/0005.
+#
+# Access to /var/run/docker.sock is as good as root on the machine: anyone
+# who can talk to it can start a privileged container that mounts /. So the
+# API never gets the socket. It talks to this proxy, which forwards only the
+# requests allowed below and answers everything else with 403 Forbidden.
+#
+# Always on, like playit:
+#   docker compose -f deploy/docker-proxy/compose.yaml up -d
+name: docker-proxy
+
+services:
+  docker-proxy:
+    # Pinned: a new version could change what's allowed by default.
+    image: lscr.io/linuxserver/socket-proxy:3.4.7
+    container_name: docker-proxy
+
+    environment:
+      # --- Allowed -----------------------------------------------------------
+      # GET /containers/... : list and inspect containers (status, health).
+      CONTAINERS: 1
+      # POST /containers/{id}/start and /stop, and nothing else that POSTs.
+      ALLOW_START: 1
+      ALLOW_STOP: 1
+      # GET /_ping and /version: the SDK uses them to agree an API version.
+      PING: 1
+      VERSION: 1
+
+      # --- Refused (spelled out, so nobody has to know the defaults) ---------
+      # Any other POST/PUT/DELETE: create, kill, remove, exec, update...
+      POST: 0
+      ALLOW_RESTARTS: 0
+      EXEC: 0
+      IMAGES: 0
+      VOLUMES: 0
+      NETWORKS: 0
+      BUILD: 0
+      INFO: 0
+      EVENTS: 0
+      AUTH: 0
+      SECRETS: 0
+      SYSTEM: 0
+
+    volumes:
+      # Read-only mount. This doesn't limit the API calls (those are
+      # filtered by the settings above); it stops the proxy from replacing
+      # or deleting the socket file itself.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    # The proxy only needs to write its runtime files.
+    read_only: true
+    tmpfs:
+      - /run
+
+    ports:
+      # Localhost only: the API runs on this machine.
+      - "127.0.0.1:2375:2375"
+
+    restart: unless-stopped
