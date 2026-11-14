@@ -95,7 +95,7 @@ Expected: logs show the agent connected/authenticated, and the agent shows as on
 ```bash
 git add .gitignore deploy/
 git status   # confirm deploy/playit/.env is NOT listed
-git commit -m "Add playit.gg tunnel as its own Compose project"
+git commit -m "feat(playit): add playit.gg tunnel as its own Compose project"
 ```
 
 ---
@@ -153,7 +153,7 @@ Join with the same pack in the CurseForge app. Expected: joins with no mod-misma
 ```bash
 git add deploy/minecraft
 git status   # confirm .env and downloads/ are NOT listed
-git commit -m "Add Minecraft Compose project running the custom CurseForge pack"
+git commit -m "feat(minecraft): add Compose project running the custom CurseForge pack"
 ```
 
 ---
@@ -206,7 +206,7 @@ Ask Claude to review `mc.sh`. Apply the agreed fixes and re-run Step 4.
 
 ```bash
 git add deploy/mc.sh
-git commit -m "Add mc.sh to start, stop and check the Minecraft server"
+git commit -m "feat(minecraft): add mc.sh to start, stop and check the server"
 ```
 
 ---
@@ -295,7 +295,7 @@ Expected: `clean`.
 
 ```bash
 git add README.md docs/decisions
-git commit -m "Document running the Minecraft server; add decision records 0002 and 0003"
+git commit -m "docs: document running the Minecraft server, add decision records 0002 and 0003"
 # then, from the main checkout:
 cd ~/Projects/coding/server-control-panel
 git merge --ff-only milestone-1-minecraft
