@@ -1,0 +1,28 @@
+# playit.gg tunnel agent: gives friends a public address for the game server,
+# even though the home connection is behind CGNAT. The agent connects *out* to
+# playit's relays, so no router ports are opened.
+#
+# This is its own Compose project, separate from the games (see
+# docs/decisions/0003). The tunnel stays up while games are started, stopped
+# and switched.
+#
+# Setup: copy .env.example to .env and fill in SECRET_KEY, then
+#   docker compose up -d
+name: playit
+
+services:
+  playit:
+    # Pinned, never `latest`, so an update can't silently change behaviour.
+    image: ghcr.io/playit-cloud/playit-agent:2.0.2
+    container_name: playit
+    # Host networking: inside the container, 127.0.0.1 is the host itself, so
+    # a tunnel pointing to 127.0.0.1:25565 reaches the Minecraft port that is
+    # published on the host's localhost. Any future game works the same way.
+    network_mode: host
+    # The tunnel is infrastructure: it comes back after a reboot or a Docker
+    # restart. (The games use restart: "no" and are started on purpose.)
+    restart: unless-stopped
+    environment:
+      # Read from .env in this folder. Untracked, never commit it.
+      # The :? makes Compose refuse to start with a clear message if it's unset.
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in deploy/playit/.env}
