@@ -7,6 +7,7 @@ require (
 	github.com/gorcon/rcon v1.4.0
 	github.com/moby/moby/api v1.57.0
 	github.com/moby/moby/client v0.6.3
+	golang.org/x/time v0.16.0
 )
 
 require (
