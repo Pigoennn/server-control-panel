@@ -36,12 +36,20 @@ services:
         probitbit
       EXISTING_OPS_FILE: MERGE
 
+      # RCON lets the control API ask who's online. The image enables RCON
+      # already; this sets the password from .env next to this file (cp
+      # .env.example .env). Compose refuses to start without it.
+      RCON_PASSWORD: ${MC_RCON_PASSWORD:?set MC_RCON_PASSWORD in .env next to this file}
+
     volumes:
       - minecraft-vanilla-data:/data
 
     ports:
       # Localhost only (Docker-published ports bypass ufw); playit forwards.
       - "127.0.0.1:25565:25565"
+      # RCON for the API's player list. Localhost only: RCON can run any
+      # server command, so it must never be reachable from outside.
+      - "127.0.0.1:25575:25575"
 
     mem_limit: 3g
     healthcheck:
