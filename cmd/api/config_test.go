@@ -5,7 +5,10 @@ import (
 	"testing"
 )
 
-const goodToken = "0123456789abcdef0123456789abcdef" // 32 characters
+const (
+	goodToken = "0123456789abcdef0123456789abcdef" // 32 characters
+	proxyHost = "tcp://127.0.0.1:2375"
+)
 
 // env turns a map into a getenv function. loadConfig takes getenv as a
 // parameter instead of calling os.Getenv itself, so tests can hand it a
@@ -18,6 +21,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	cfg, err := loadConfig(env(map[string]string{
 		"API_TOKEN":        goodToken,
 		"MC_RCON_PASSWORD": "pw",
+		"DOCKER_HOST":      proxyHost,
 	}))
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
@@ -39,6 +43,7 @@ func TestLoadConfigOverrides(t *testing.T) {
 		"MC_RCON_PASSWORD": "pw",
 		"API_ADDR":         "127.0.0.1:9000",
 		"MC_RCON_ADDR":     "127.0.0.1:25576",
+		"DOCKER_HOST":      proxyHost,
 	}))
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
@@ -61,16 +66,34 @@ func wantErr(t *testing.T, vars map[string]string, msg string) {
 }
 
 func TestLoadConfigMissingToken(t *testing.T) {
-	wantErr(t, map[string]string{"MC_RCON_PASSWORD": "pw"}, "API_TOKEN is required")
+	wantErr(t, map[string]string{"MC_RCON_PASSWORD": "pw", "DOCKER_HOST": proxyHost}, "API_TOKEN is required")
 }
 
 func TestLoadConfigShortToken(t *testing.T) {
 	wantErr(t, map[string]string{
 		"API_TOKEN":        strings.Repeat("a", 31),
 		"MC_RCON_PASSWORD": "pw",
+		"DOCKER_HOST":      proxyHost,
 	}, "API_TOKEN must be at least 32 characters")
 }
 
 func TestLoadConfigMissingRCONPassword(t *testing.T) {
-	wantErr(t, map[string]string{"API_TOKEN": goodToken}, "MC_RCON_PASSWORD is required")
+	wantErr(t, map[string]string{"API_TOKEN": goodToken, "DOCKER_HOST": proxyHost}, "MC_RCON_PASSWORD is required")
+}
+
+// Without DOCKER_HOST the Docker SDK falls back to the raw socket,
+// skipping the proxy's allowlist. Refuse to start instead.
+func TestLoadConfigMissingDockerHost(t *testing.T) {
+	wantErr(t, map[string]string{"API_TOKEN": goodToken, "MC_RCON_PASSWORD": "pw"},
+		"DOCKER_HOST is required: point it at the socket proxy, tcp://127.0.0.1:2375")
+}
+
+// A unix:// DOCKER_HOST (sometimes set globally in a shell profile) is the
+// raw socket again.
+func TestLoadConfigRawSocket(t *testing.T) {
+	wantErr(t, map[string]string{
+		"API_TOKEN":        goodToken,
+		"MC_RCON_PASSWORD": "pw",
+		"DOCKER_HOST":      "unix:///var/run/docker.sock",
+	}, "DOCKER_HOST must be the socket proxy (tcp://...), not the raw Docker socket")
 }

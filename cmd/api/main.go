@@ -38,12 +38,6 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	// Without DOCKER_HOST the SDK falls back to /var/run/docker.sock,
-	// which bypasses the proxy's allowlist. Warn loudly.
-	if os.Getenv("DOCKER_HOST") == "" {
-		logger.Warn("DOCKER_HOST is unset; set it to the socket proxy, tcp://127.0.0.1:2375")
-	}
-
 	dc, err := docker.New()
 	if err != nil {
 		return err

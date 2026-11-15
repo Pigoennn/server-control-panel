@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // minTokenLen is the shortest API_TOKEN accepted. `openssl rand -hex 32`
@@ -11,7 +12,8 @@ const minTokenLen = 32
 
 // config is everything the API reads from the environment.
 //
-// DOCKER_HOST isn't here: the Docker SDK reads it itself (client.FromEnv).
+// DOCKER_HOST is checked but not stored: the Docker SDK reads it itself
+// (client.FromEnv).
 type config struct {
 	Token        string // API_TOKEN, required
 	Addr         string // API_ADDR, default 127.0.0.1:8080
@@ -37,6 +39,17 @@ func loadConfig(getenv func(string) string) (config, error) {
 		return config{}, fmt.Errorf("API_TOKEN must be at least %d characters", minTokenLen)
 	case cfg.RCONPassword == "":
 		return config{}, errors.New("MC_RCON_PASSWORD is required")
+	}
+
+	// Without DOCKER_HOST the SDK falls back to /var/run/docker.sock, which
+	// is root-equivalent and skips the proxy's allowlist. Refuse to start
+	// rather than quietly run with more power than we need.
+	dockerHost := getenv("DOCKER_HOST")
+	switch {
+	case dockerHost == "":
+		return config{}, errors.New("DOCKER_HOST is required: point it at the socket proxy, tcp://127.0.0.1:2375")
+	case !strings.HasPrefix(dockerHost, "tcp://"):
+		return config{}, errors.New("DOCKER_HOST must be the socket proxy (tcp://...), not the raw Docker socket")
 	}
 	return cfg, nil
 }
