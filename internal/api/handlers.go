@@ -195,9 +195,6 @@ func (s *server) stopGame(w http.ResponseWriter, r *http.Request) {
 // The 500 body is deliberately vague: internal details (proxy addresses,
 // Docker messages) belong in the log, not in a response anyone could read.
 func (s *server) writeError(w http.ResponseWriter, r *http.Request, err error) {
-	// TODO(jonathan): a `switch { case errors.Is(...): }` fits well here.
-	// Respond with writeJSON(w, code, errorResponse{Error: msg}).
-
 	switch {
 	case errors.Is(err, games.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "game not found"})

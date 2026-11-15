@@ -66,22 +66,6 @@ func (s *Server) state(ctx context.Context) (st games.State, exists bool, err er
 // Status reports the server's state. A container that doesn't exist counts
 // as stopped.
 func (s *Server) Status(ctx context.Context) (games.Status, error) {
-	// TODO(jonathan):
-	//   - Ask Docker about the container:
-	//       res, err := s.cfg.Docker.ContainerInspect(ctx, s.cfg.Container, client.ContainerInspectOptions{})
-	//     (import "github.com/moby/moby/client"). The state is res.Container.State.
-	//   - docker.IsNotFound(err) means no container: return games.Stopped, nil.
-	//   - Any other error: return it wrapped with context, e.g.
-	//       fmt.Errorf("inspect %s: %w", s.cfg.Container, err)
-	//     %w (not %v) keeps the original error inside, so errors.Is still
-	//     finds it. TestStatusDockerError checks that.
-	//   - Otherwise stateFrom does the rest.
-	//
-	// Start, Stop and Players all need the state first. A private helper
-	// such as
-	//     func (s *Server) state(ctx context.Context) (games.State, bool, error)
-	// returning (state, exists, err) keeps all four methods short. Up to you.
-
 	st, _, err := s.state(ctx)
 	if err != nil {
 		return games.Status{}, err
@@ -94,18 +78,13 @@ func (s *Server) Status(ctx context.Context) (games.Status, error) {
 // container is running; the server then takes a while to boot, which shows
 // up in Status as "starting".
 func (s *Server) Start(ctx context.Context) error {
-	// TODO(jonathan):
-	//   - No container: return an error that wraps games.ErrNotCreated, e.g.
-	//       fmt.Errorf("start %s: %w", s.cfg.Name, games.ErrNotCreated)
-	//   - Anything but games.Stopped: already up, return nil.
-	//   - Otherwise s.cfg.Docker.ContainerStart(ctx, s.cfg.Container,
-	//     client.ContainerStartOptions{}), wrapping any error.
 	st, exists, err := s.state(ctx)
 
 	switch {
 	case err != nil:
 		return err
 
+	// no container
 	case !exists:
 		return fmt.Errorf("start %s: %w", s.cfg.Name, games.ErrNotCreated)
 
@@ -124,14 +103,6 @@ func (s *Server) Start(ctx context.Context) error {
 
 // Stop stops the container if it's running, waiting for the world to save.
 func (s *Server) Stop(ctx context.Context) error {
-	// TODO(jonathan):
-	//   - No container, or already games.Stopped: return nil.
-	//   - Otherwise ContainerStop with a timeout in whole seconds.
-	//     client.ContainerStopOptions.Timeout is a *int (a pointer, so
-	//     "not set" (nil) differs from 0, which means "kill immediately"):
-	//       secs := int(s.cfg.StopTimeout.Seconds())
-	//       ... client.ContainerStopOptions{Timeout: &secs}
-	//   - Wrap any error.
 
 	st, exists, err := s.state(ctx)
 
@@ -156,12 +127,7 @@ func (s *Server) Stop(ctx context.Context) error {
 // Players lists who's online. It only asks the server when it's running;
 // otherwise the list is empty.
 func (s *Server) Players(ctx context.Context) ([]games.Player, error) {
-	// TODO(jonathan):
-	//   - Not games.Running: return []games.Player{}, nil (empty, not nil,
-	//     same reason as parseList).
-	//   - Otherwise reply, err := s.cfg.Query("list"); wrap any error.
-	//   - Return parseList(reply).
-
+	// check the game is running and no error occurred
 	st, _, err := s.state(ctx)
 	switch {
 	case err != nil:
