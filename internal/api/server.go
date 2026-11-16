@@ -5,6 +5,7 @@ package api
 import (
 	"log/slog"
 	"net/http"
+	"sync"
 
 	"golang.org/x/time/rate"
 
@@ -28,8 +29,9 @@ type Config struct {
 // reach the games and the logger through the receiver (s) instead of
 // global variables.
 type server struct {
-	games  []games.Game
-	logger *slog.Logger
+	games   []games.Game
+	logger  *slog.Logger
+	startMu sync.Mutex
 }
 
 // New returns the API as one http.Handler, ready for http.Server.

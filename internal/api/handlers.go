@@ -114,11 +114,32 @@ func (s *server) getGame(w http.ResponseWriter, r *http.Request) {
 // startGame answers POST /games/{name}/start. It returns as soon as Docker
 // has started the container; the state is then usually "starting".
 func (s *server) startGame(w http.ResponseWriter, r *http.Request) {
-
 	game, err := s.lookup(r.PathValue("name"))
 	if err != nil {
 		s.writeError(w, r, err)
 		return
+	}
+
+	s.startMu.Lock()
+	defer s.startMu.Unlock()
+
+	// only one game can be on at a time
+	for _, sgame := range s.games {
+		if game.Name() == sgame.Name() {
+			continue
+		}
+
+		status, err := sgame.Status(r.Context())
+		if err != nil {
+			s.writeError(w, r, err)
+			return
+		}
+
+		if status.State != games.Stopped {
+			msg := fmt.Sprintf("%s is already running; stop it first", sgame.Name())
+			writeJSON(w, http.StatusConflict, errorResponse{Error: msg})
+			return
+		}
 	}
 
 	err = game.Start(r.Context())
