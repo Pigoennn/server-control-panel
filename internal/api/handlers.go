@@ -28,6 +28,10 @@ type gameResponse struct {
 	Name    string      `json:"name"`
 	State   games.State `json:"state"`
 	Players []string    `json:"players,omitzero"`
+	// StoppingAt is when an admin's countdown will stop the server. The
+	// zero time.Time (no countdown) is left out, thanks to omitzero:
+	// time.Time has an IsZero method, and omitzero uses it.
+	StoppingAt time.Time `json:"stopping_at,omitzero"`
 }
 
 // playersOnlineResponse is the 409 body when a non-admin tries to stop a
@@ -74,9 +78,10 @@ func (s *server) listGames(w http.ResponseWriter, r *http.Request) {
 		}
 
 		responses = append(responses, gameResponse{
-			Name:    game.Name(),
-			State:   status.State,
-			Players: nil,
+			Name:       game.Name(),
+			State:      status.State,
+			Players:    nil,
+			StoppingAt: s.stoppingAt(game.Name()),
 		})
 	}
 
@@ -111,9 +116,10 @@ func (s *server) getGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := gameResponse{
-		Name:    game.Name(),
-		State:   status.State,
-		Players: names,
+		Name:       game.Name(),
+		State:      status.State,
+		Players:    names,
+		StoppingAt: s.stoppingAt(game.Name()),
 	}
 
 	writeJSON(w, http.StatusOK, response)
@@ -184,10 +190,22 @@ func (s *server) stopGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Protect people who are playing: refuse (or, for an admin, defer) the
-	// stop while anyone may be online. A server that is starting or unhealthy
-	// reports no players (the Minecraft adapter only asks RCON when it's
-	// running), so anyone can stop one that's still booting.
+	if count := s.stoppingAt(game.Name()); !count.IsZero() {
+		// reply 202
+		status, err := game.Status(r.Context())
+		if err != nil {
+			s.writeError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusAccepted, gameResponse{
+			Name:       game.Name(),
+			State:      status.State,
+			StoppingAt: count,
+		})
+		return
+	}
+
 	status, err := game.Status(r.Context())
 	if err != nil {
 		s.writeError(w, r, err)
@@ -247,7 +265,13 @@ func (s *server) blockedByPlayers(w http.ResponseWriter, r *http.Request, game g
 
 	// if Admin, then we'll allow the stop after a bit
 	if actorFrom(r.Context()).Admin {
-		writeJSON(w, http.StatusNotImplemented, errorResponse{Error: "countdown not implemented yet"})
+		stoppingAt := s.startCountdown(game, actorFrom(r.Context()))
+
+		writeJSON(w, http.StatusAccepted, gameResponse{
+			Name:       game.Name(),
+			State:      games.Running,
+			StoppingAt: stoppingAt,
+		})
 		return true
 	}
 

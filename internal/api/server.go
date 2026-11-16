@@ -32,6 +32,11 @@ type server struct {
 	games   []games.Game
 	logger  *slog.Logger
 	startMu sync.Mutex
+
+	// mu guards countdowns: each game's pending admin stop, keyed by game
+	// name. See countdown.go.
+	mu         sync.Mutex
+	countdowns map[string]*countdown
 }
 
 // New returns the API as one http.Handler, ready for http.Server.
@@ -46,13 +51,19 @@ type server struct {
 // a /games handler. /healthz is logged but needs no token and isn't
 // limited, so monitoring can poll it freely.
 func New(cfg Config) http.Handler {
-	s := &server{games: cfg.Games, logger: cfg.Logger}
+	s := &server{
+		games:  cfg.Games,
+		logger: cfg.Logger,
+		// A map must be made before use: writing to a nil map panics.
+		countdowns: make(map[string]*countdown),
+	}
 
 	gameRoutes := http.NewServeMux()
 	gameRoutes.HandleFunc("GET /games", s.listGames)
 	gameRoutes.HandleFunc("GET /games/{name}", s.getGame)
 	gameRoutes.HandleFunc("POST /games/{name}/start", s.startGame)
 	gameRoutes.HandleFunc("POST /games/{name}/stop", s.stopGame)
+	gameRoutes.HandleFunc("POST /games/{name}/stop/cancel", s.cancelStop)
 	protected := rateLimit(cfg.Limiter, requireToken(cfg.Token, gameRoutes))
 
 	mux := http.NewServeMux()

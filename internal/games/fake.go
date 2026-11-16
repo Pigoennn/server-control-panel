@@ -110,3 +110,19 @@ func (g *FakeGame) Said() []string {
 	defer g.mu.Unlock()
 	return append([]string(nil), g.announcements...)
 }
+
+// SetState changes the state under the lock. Use it instead of assigning
+// State directly when another goroutine (the API's countdown) may be
+// reading it at the same time; a plain assignment would be a data race.
+func (g *FakeGame) SetState(s State) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.State = s
+}
+
+// StopCount returns Stops under the lock, for the same reason.
+func (g *FakeGame) StopCount() int {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.Stops
+}
