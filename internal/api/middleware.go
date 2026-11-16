@@ -96,6 +96,7 @@ func logRequests(logger *slog.Logger, next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 
 		next.ServeHTTP(rec, r)
+		actor := actorFrom(r.Context())
 
 		logger.Info("request",
 			"method", r.Method,
@@ -103,6 +104,9 @@ func logRequests(logger *slog.Logger, next http.Handler) http.Handler {
 			"status", rec.status,
 			"duration", time.Since(start),
 			"remote", r.RemoteAddr,
+			// Who asked: the audit trail for starts and stops.
+			"actor", actor.ID,
+			"admin", actor.Admin,
 		)
 	})
 }

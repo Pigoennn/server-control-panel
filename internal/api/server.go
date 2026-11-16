@@ -40,9 +40,9 @@ type server struct {
 // gets 405 Method Not Allowed automatically.
 //
 // Middleware wrap handlers from the outside in. A request passes through
-// logRequests, then rateLimit, then requireToken, and only then reaches a
-// /games handler. /healthz is logged but needs no token and isn't limited,
-// so monitoring can poll it freely.
+// withActor, logRequests, rateLimit and requireToken, and only then reaches
+// a /games handler. /healthz is logged but needs no token and isn't
+// limited, so monitoring can poll it freely.
 func New(cfg Config) http.Handler {
 	s := &server{games: cfg.Games, logger: cfg.Logger}
 
@@ -58,5 +58,6 @@ func New(cfg Config) http.Handler {
 	mux.Handle("/games", protected)  // exactly /games
 	mux.Handle("/games/", protected) // everything under /games/
 
-	return logRequests(cfg.Logger, mux)
+	// withActor is outermost so logRequests can log who asked.
+	return withActor(logRequests(cfg.Logger, mux))
 }

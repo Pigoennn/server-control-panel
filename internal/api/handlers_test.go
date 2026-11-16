@@ -40,6 +40,21 @@ func do(t *testing.T, h http.Handler, method, path string) *httptest.ResponseRec
 	return rec
 }
 
+// doAs is do, sent on behalf of a Discord user: it adds the headers the
+// bot sends. X-Actor-Admin is only set for admins, like the bot does.
+func doAs(t *testing.T, h http.Handler, method, path string, a Actor) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, path, nil)
+	req.Header.Set("Authorization", "Bearer "+testToken)
+	req.Header.Set("X-Actor-ID", a.ID)
+	if a.Admin {
+		req.Header.Set("X-Actor-Admin", "true")
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
 // wantJSON fails unless the response has the given status code and its
 // body is the same JSON as want (ignoring spacing and key order).
 func wantJSON(t *testing.T, rec *httptest.ResponseRecorder, code int, want string) {
