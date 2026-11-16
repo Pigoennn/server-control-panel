@@ -26,6 +26,14 @@ type FakeGame struct {
 	// StopCtxErr records ctx.Err() as Stop saw it, so a test can check the
 	// caller didn't pass an already-cancelled context.
 	StopCtxErr error
+	// AnnounceErr, when set, is returned by Announce (after recording the
+	// message, so a test can see what was attempted).
+	AnnounceErr error
+
+	// announcements is what Announce was asked to say. Unexported, because
+	// the countdown writes it from its own goroutine: tests read it through
+	// Said, which takes the lock.
+	announcements []string
 
 	// mu guards the fields above, because HTTP handlers run concurrently.
 	// The zero value of sync.Mutex is ready to use: no constructor needed.
@@ -36,6 +44,9 @@ type FakeGame struct {
 // *FakeGame to a Game variable named _ (discarded); if a method were
 // missing, this line would fail to compile.
 var _ Game = (*FakeGame)(nil)
+
+// FakeGame can announce too, like the Minecraft adapter.
+var _ Announcer = (*FakeGame)(nil)
 
 func (g *FakeGame) Name() string { return g.GameName }
 
@@ -82,4 +93,20 @@ func (g *FakeGame) Players(ctx context.Context) ([]Player, error) {
 		return nil, g.PlayersErr
 	}
 	return g.PlayerList, nil
+}
+
+func (g *FakeGame) Announce(ctx context.Context, message string) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.announcements = append(g.announcements, message)
+	return g.AnnounceErr
+}
+
+// Said returns a copy of every message passed to Announce, in order. A copy,
+// so the caller can't race with a later Announce appending to the same
+// slice.
+func (g *FakeGame) Said() []string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return append([]string(nil), g.announcements...)
 }

@@ -41,6 +41,11 @@ type Server struct {
 // Compile-time check that *Server implements games.Game.
 var _ games.Game = (*Server)(nil)
 
+// ...and games.Announcer, so the API can warn players before a countdown
+// stop. If Announce were missing or had the wrong signature, this line
+// would stop the build.
+var _ games.Announcer = (*Server)(nil)
+
 // New returns an adapter for the server described by cfg.
 func New(cfg Config) *Server {
 	return &Server{cfg: cfg}
@@ -142,4 +147,15 @@ func (s *Server) Players(ctx context.Context) ([]games.Player, error) {
 		return nil, fmt.Errorf("players %s: %w", s.cfg.Name, err)
 	}
 	return parseList(reply)
+}
+
+// Announce shows message in the in-game chat, using the RCON command
+// "say <message>". Players see it as "[Server] <message>".
+func (s *Server) Announce(ctx context.Context, message string) error {
+	_, err := s.cfg.Query("say " + message)
+	if err != nil {
+		return fmt.Errorf("announce %s: %w", s.cfg.Name, err)
+	}
+
+	return nil
 }

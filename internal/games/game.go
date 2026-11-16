@@ -40,6 +40,26 @@ type Game interface {
 	Players(ctx context.Context) ([]Player, error)
 }
 
+// Announcer is a game that can show a message to everyone in-game. The API
+// uses it to warn players before an admin's countdown stops the server.
+//
+// It's an "optional interface": a separate, small interface that some
+// Games also implement, instead of a sixth method on Game. Code that has a
+// Game asks whether it can also announce with a type assertion:
+//
+//	if a, ok := g.(games.Announcer); ok {
+//		a.Announce(ctx, "Server stopping in 1 minute")
+//	}
+//
+// ok is false for a game that can't, and the caller just skips the
+// warnings. That way a future game without in-game chat (or without a way
+// to reach it) still fits Game unchanged. The standard library does the
+// same: io.Copy checks whether a Writer is also an io.ReaderFrom.
+type Announcer interface {
+	// Announce shows message to every player on the server.
+	Announce(ctx context.Context, message string) error
+}
+
 // State is one of the four states a server can be in. It's a named string
 // type rather than a plain string: the compiler then stops you passing any
 // random string where a State is expected, while it still prints and
