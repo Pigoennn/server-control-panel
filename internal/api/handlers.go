@@ -30,6 +30,17 @@ type gameResponse struct {
 	Players []string    `json:"players,omitzero"`
 }
 
+// playersOnlineResponse is the 409 body when a non-admin tries to stop a
+// server with players on it. The bot uses Players to say who.
+//
+//	Players: nil      -> no "players" key: RCON didn't answer, so the API
+//	                     doesn't know who's on and assumes someone is
+//	Players: [...]    -> who's online
+type playersOnlineResponse struct {
+	Error   string   `json:"error"` // always "players are online"
+	Players []string `json:"players,omitzero"`
+}
+
 // lookup finds a game by name.
 func (s *server) lookup(name string) (games.Game, error) {
 
@@ -96,10 +107,7 @@ func (s *server) getGame(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Warn("list players", "game", game.Name(), "err", err)
 	} else {
-		names = make([]string, 0, len(players))
-		for _, name := range players {
-			names = append(names, name.Name)
-		}
+		names = playerNames(players)
 	}
 
 	response := gameResponse{
@@ -176,6 +184,19 @@ func (s *server) stopGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Protect people who are playing: refuse (or, for an admin, defer) the
+	// stop while anyone may be online. A server that is starting or unhealthy
+	// reports no players (the Minecraft adapter only asks RCON when it's
+	// running), so anyone can stop one that's still booting.
+	status, err := game.Status(r.Context())
+	if err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	if status.State != games.Stopped && s.blockedByPlayers(w, r, game) {
+		return
+	}
+
 	// ignore caller's cancel but still has a TimeOut limit in case of HTTP client timing out
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), stopTimeout)
 	defer cancel()
@@ -189,7 +210,7 @@ func (s *server) stopGame(w http.ResponseWriter, r *http.Request) {
 	s.logger.Info("stop", "game", game.Name())
 
 	// return if error
-	status, err := game.Status(ctx)
+	status, err = game.Status(ctx)
 	if err != nil {
 		s.writeError(w, r, err)
 		return
@@ -202,6 +223,51 @@ func (s *server) stopGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, response)
+}
+
+// blockedByPlayers checks whether anyone may be on game before a stop. It
+// returns true if it has already written the response (409 for a friend,
+// 501 for an admin until the countdown exists), so the caller must return.
+// It returns false, having written nothing, when nobody is online and the
+// stop can go ahead.
+//
+// "May be online" includes a failed Players call: if RCON doesn't answer,
+// nobody knows who's on, so the stop is refused rather than risk someone's
+// unsaved progress.
+func (s *server) blockedByPlayers(w http.ResponseWriter, r *http.Request, game games.Game) bool {
+	players, err := game.Players(r.Context())
+	if err != nil {
+		s.logger.Warn("list players", "game", game.Name(), "err", err)
+	}
+
+	// no need to do anything, cool to go through
+	if err == nil && len(players) == 0 {
+		return false
+	}
+
+	// if Admin, then we'll allow the stop after a bit
+	if actorFrom(r.Context()).Admin {
+		writeJSON(w, http.StatusNotImplemented, errorResponse{Error: "countdown not implemented yet"})
+		return true
+	}
+
+	var names []string
+	if err == nil {
+		names = playerNames(players)
+	}
+	response := playersOnlineResponse{Error: "players are online", Players: names}
+	writeJSON(w, http.StatusConflict, response)
+	return true
+}
+
+// playerNames turns players into just their names, for JSON responses.
+func playerNames(players []games.Player) []string {
+	names := make([]string, 0, len(players))
+	for _, player := range players {
+		names = append(names, player.Name)
+	}
+
+	return names
 }
 
 // writeError turns err into the right status code and JSON body.

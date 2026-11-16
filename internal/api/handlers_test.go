@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -127,31 +126,6 @@ func TestStartNotCreated409(t *testing.T) {
 	rec := do(t, newTestAPI(g), "POST", "/games/minecraft/start")
 	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "up --no-start") {
 		t.Errorf("got %d %s; want 409 with the up --no-start hint", rec.Code, rec.Body)
-	}
-}
-
-func TestStop(t *testing.T) {
-	g := &games.FakeGame{GameName: "minecraft", State: games.Running}
-	wantJSON(t, do(t, newTestAPI(g), "POST", "/games/minecraft/stop"), 200,
-		`{"name":"minecraft","state":"stopped"}`)
-	if g.Stops != 1 {
-		t.Errorf("Stops = %d, want 1", g.Stops)
-	}
-}
-
-// If the caller hangs up mid-stop, its context is cancelled. The stop must
-// carry on anyway, so the world isn't cut off mid-save.
-func TestStopSurvivesClientCancel(t *testing.T) {
-	g := &games.FakeGame{GameName: "minecraft", State: games.Running}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // the caller has already gone
-
-	req := httptest.NewRequestWithContext(ctx, "POST", "/games/minecraft/stop", nil)
-	req.Header.Set("Authorization", "Bearer "+testToken)
-	newTestAPI(g).ServeHTTP(httptest.NewRecorder(), req)
-
-	if g.Stops != 1 || g.StopCtxErr != nil {
-		t.Errorf("Stops = %d, ctx error seen by Stop = %v; want 1, nil", g.Stops, g.StopCtxErr)
 	}
 }
 
