@@ -41,4 +41,4 @@ docs/             plan, milestones, decisions/
 - **Never commit secrets.** The Discord bot token, OAuth secret and playit key go in an untracked `.env` (listed in `.gitignore`).
 - **The API only exposes an allowlist of actions.** Docker socket access is root-equivalent: run as a limited user or behind a socket proxy, and authenticate, rate-limit and log every request.
 - **Test against a fake `Game` adapter,** so the API and bot can be tested without Docker.
-- **Log usage metrics from milestone 3 onwards:** starts, unique players, hours played, uptime, and idle hours saved.
+- **Log usage metrics from milestone 4 onwards:** starts, unique players, hours played, uptime, and idle hours saved (moved from milestone 3; see `docs/decisions/0007-metrics-in-milestone-4.md`).

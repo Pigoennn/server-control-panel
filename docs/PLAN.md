@@ -99,8 +99,8 @@ Docker socket access is effectively root on the machine. To lock it down:
 0. **Setup.** Harden the laptop (SSH keys only, ufw, automatic security updates), install Docker, create the repo, and work through the Tour of Go.
 1. **Containerise Minecraft.** Docker Compose with a persistent volume, plus a tiny script that starts it, stops it and reports status. A friend joins through playit.gg.
 2. **Go API.** The `Game` interface, the Minecraft adapter, and start/stop/status as authenticated endpoints, with tests.
-3. **Discord bot.** Friends start using it. Start logging usage metrics.
-4. **Dashboard + public access.** Discord login, roles, live status, player count and logs, served through Cloudflare Tunnel.
+3. **Discord bot.** Friends start using it, through an allowed list; stopping protects people who are playing.
+4. **Dashboard + public access.** Discord login, roles, live status, player count and logs, served through Cloudflare Tunnel. Start logging usage metrics (SQLite), shown on the dashboard.
 5. **More games.** The Hytale adapter and the one-game-at-a-time switch.
 6. **Backups.** Scheduled snapshots per game, retention rules and an off-machine copy, with a tested restore.
 7. **Ops polish.** GitHub Actions CI, automated deploys, Ansible to rebuild the box from scratch, and alerts.

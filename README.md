@@ -102,7 +102,40 @@ curl -s -X POST -H "Authorization: Bearer $API_TOKEN" 127.0.0.1:8080/games/minec
 # {"name":"minecraft-vanilla","state":"stopped"}    (waits for the world to save, up to 2 minutes)
 ```
 
-States are `stopped`, `starting`, `running` and `unhealthy`. `players` is `[]` unless the server is running, and missing if RCON didn't answer. Errors are `{"error": "..."}`: `401` bad or missing token, `404` unknown game, `409` container not created, `429` too many requests (5 a second, bursts of 10), `500` anything else (details in the API's log).
+States are `stopped`, `starting`, `running` and `unhealthy`. `players` is `[]` unless the server is running, and missing if RCON didn't answer.
+
+**Who is asking.** The bot sends two headers with every request: `X-Actor-ID` (the Discord user ID) and `X-Actor-Admin: true` for admins. Both appear in the API's log line for the request, which makes the log the audit trail of who started, stopped or cancelled what. A request without them (like the `curl` above) counts as a non-admin with no ID. The API trusts these headers because only a holder of `API_TOKEN` can send requests at all ([0009](docs/decisions/0009-api-trusts-actor-headers.md)).
+
+**Stopping with people online.** Only one game runs at a time, and nobody gets kicked off by accident:
+
+| Who | Players online | `POST /games/{name}/stop` |
+| --- | --- | --- |
+| anyone | none | stops now, `200` |
+| non-admin | some, or unknown (RCON didn't answer) | `409 {"error":"players are online","players":[...]}` |
+| admin | some, or unknown | `202` with `stopping_at`: players are warned in-game at 5 min, 1 min, 30 s and 10 s, then it stops |
+| anyone | a countdown is already running | `202` with the same `stopping_at` |
+
+```sh
+# As an admin: starts the 5-minute countdown
+curl -s -X POST -H "Authorization: Bearer $API_TOKEN" -H "X-Actor-ID: 123456789012345678" -H "X-Actor-Admin: true" \
+  127.0.0.1:8080/games/minecraft-vanilla/stop
+# {"name":"minecraft-vanilla","state":"running","stopping_at":"2026-11-17T09:05:00Z"}
+
+# Cancel it (admins only), which also says "Shutdown cancelled." in-game
+curl -s -X POST -H "Authorization: Bearer $API_TOKEN" -H "X-Actor-Admin: true" \
+  127.0.0.1:8080/games/minecraft-vanilla/stop/cancel
+# {"name":"minecraft-vanilla","state":"running"}
+```
+
+`GET /games` and `GET /games/{name}` include `stopping_at` while a countdown runs. If the API restarts mid-countdown, the countdown is lost and the server keeps running.
+
+Errors are `{"error": "..."}`:
+- `401`: bad or missing token.
+- `403`: a non-admin tried to cancel a countdown.
+- `404`: unknown game.
+- `409`: container not created; another game is already running (`"minecraft is already running; stop it first"`); or players are online (above).
+- `429`: too many requests (5 a second, bursts of 10).
+- `500`: anything else (details in the API's log).
 
 ### Tests
 
@@ -112,3 +145,39 @@ env $(grep -v '^#' .env | grep .) go test -tags integration -v ./internal/games/
 ```
 
 The integration test starts and stops the real `minecraft-vanilla` container through the proxy (about 30 seconds). It needs the proxy running and the container created. Stop the modded server first: both use the same ports.
+
+## Running the bot
+
+The Discord bot (`cmd/bot`) lets friends run `/status`, `/start` and `/stop` from Discord. It lives in one Discord server, connects out to Discord (so it needs no open port or tunnel), and calls the control API on localhost for everything. Being in the server isn't enough: only people on its allowed list can use it ([0008](docs/decisions/0008-server-based-bot.md)), and every reply is visible only to the person who asked.
+
+### First-time setup
+
+1. **Create the app.** On the [Discord Developer Portal](https://discord.com/developers/applications), click **New Application**.
+2. **Installation.** Tick **Guild Install**, with scopes `applications.commands` and `bot` and no permissions. Leave **User Install** unticked. Under **Bot**, you can turn **Public Bot** off, so only you can add it to a server.
+3. **Bot token.** Under **Bot**, click **Reset Token** and put it straight into the repo-root `.env` as `DISCORD_TOKEN`. Leave all three privileged gateway intents off: the bot reads no messages.
+4. **Add it to the server.** Open the install link from the **Installation** page and choose the server. In Discord, turn on **Settings → Advanced → Developer Mode**, right-click the server → **Copy Server ID**, and put it in `.env` as `DISCORD_GUILD_ID`.
+5. **Who may use it.** Right-click a person → **Copy User ID**, and put IDs in `ALLOWED_IDS` and `ADMIN_IDS` in `.env` (see `.env.example`).
+
+Leaving `DISCORD_GUILD_ID` empty registers the commands globally instead, for a DM with the bot (a user-installed app; tick **User Install** too). That was the original design and still works, but commands then take up to an hour to update.
+
+### Run it
+
+Start the socket proxy and the API first (see [Running the API](#running-the-api)): the bot asks the API which games exist when it starts, and refuses to start if it can't reach it. Then, in a second terminal:
+
+```sh
+env $(grep -v '^#' .env | grep .) go run ./cmd/bot
+```
+
+It logs `"bot ready"` once the commands are registered, then one JSON line per command or button press, with the Discord user ID. It never logs either token. Ctrl-C disconnects it.
+
+### Commands
+
+- **`/status`**: each game's state, who's online, and "stopping in 3m20s" during a countdown.
+- **`/start <game>`**: refused if another game is running. Otherwise the reply says it's starting, then changes to "is up — join at …" once the server is ready (or "Still starting — check with /status." after 14 minutes, Discord's limit for editing a reply).
+- **`/stop <game>`**: stops it if nobody is online. With people online:
+  - a friend is refused, with the names of who's on;
+  - an admin is asked to confirm. On confirm, players are warned in-game and the server stops 5 minutes later. Running `/stop` again during the countdown offers a **Cancel shutdown** button.
+
+The API makes these decisions, not the bot (see the table under [Endpoints](#endpoints)); the bot only chooses which buttons to show. If the API is down, every command answers "The control panel isn't answering right now — tell Jonathan."
+
+Changing the allowed or admin lists means editing `.env` and restarting the bot.

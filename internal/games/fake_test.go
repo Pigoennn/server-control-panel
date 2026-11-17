@@ -42,3 +42,18 @@ func TestFakeGameErr(t *testing.T) {
 		t.Errorf("Status = %v, want boom", err)
 	}
 }
+
+func TestFakeAnnounce(t *testing.T) {
+	g := &FakeGame{GameName: "minecraft", State: Running}
+	ctx := context.Background()
+	g.Announce(ctx, "one")
+	g.AnnounceErr = errors.New("rcon down")
+	if err := g.Announce(ctx, "two"); err == nil {
+		t.Error("Announce returned nil with AnnounceErr set")
+	}
+
+	got := g.Said()
+	if len(got) != 2 || got[0] != "one" || got[1] != "two" {
+		t.Errorf("Said() = %q, want [one two] (failed attempts are recorded too)", got)
+	}
+}

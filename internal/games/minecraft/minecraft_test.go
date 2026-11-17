@@ -184,3 +184,31 @@ func TestPlayersQueryError(t *testing.T) {
 		t.Errorf("Players() error = %v, want it to wrap %v", err, refused)
 	}
 }
+
+func TestAnnounceSendsSay(t *testing.T) {
+	s := newServer(t, &fakeDocker{inspect: running})
+	var got string
+	s.cfg.Query = func(cmd string) (string, error) {
+		got = cmd
+		return "", nil
+	}
+
+	msg := "Server stopping in 5 minutes (requested by an admin)."
+	if err := s.Announce(context.Background(), msg); err != nil {
+		t.Fatalf("Announce: %v", err)
+	}
+	if want := "say " + msg; got != want {
+		t.Errorf("RCON command = %q, want %q", got, want)
+	}
+}
+
+func TestAnnounceQueryError(t *testing.T) {
+	s := newServer(t, &fakeDocker{inspect: running})
+	refused := errors.New("connection refused")
+	s.cfg.Query = func(string) (string, error) { return "", refused }
+
+	err := s.Announce(context.Background(), "hello")
+	if !errors.Is(err, refused) {
+		t.Errorf("err = %v, want it to wrap %v", err, refused)
+	}
+}
