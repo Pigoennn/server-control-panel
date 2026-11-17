@@ -1,0 +1,38 @@
+# Discord bot (cmd/bot) as a systemd service. See docs/DEPLOY.md and
+# docs/decisions/0010.
+#
+# Install: sudo cp deploy/systemd/*.service /etc/systemd/system/
+#          sudo systemctl daemon-reload && sudo systemctl enable --now panel-bot
+# Logs:    journalctl -u panel-bot -f
+[Unit]
+Description=Server control panel: Discord bot
+Documentation=https://github.com/Pigoennn/server-control-panel/blob/main/docs/DEPLOY.md
+# The bot asks the API for the game list at startup and exits if it can't
+# reach it. Wants= (not Requires=) so restarting the API doesn't stop the bot.
+After=network-online.target panel-api.service
+Wants=network-online.target panel-api.service
+# Never give up restarting: if Discord or the API is down for a while, keep
+# trying every 10 s instead of stopping after systemd's default 5 attempts.
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/usr/local/bin/panel-bot
+# Same file as the API: the bot needs API_TOKEN too, plus DISCORD_TOKEN and
+# the allowed and admin lists.
+EnvironmentFile=/etc/server-control-panel/panel.env
+
+# Same sandbox as the API (see panel-api.service).
+DynamicUser=yes
+ProtectHome=yes
+PrivateDevices=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# Exits 1 when the API isn't reachable yet (the first seconds after boot) or
+# Discord drops it; SIGTERM from systemd exits 0, which isn't restarted.
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=15s
+
+[Install]
+WantedBy=multi-user.target

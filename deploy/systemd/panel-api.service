@@ -1,0 +1,41 @@
+# Control API (cmd/api) as a systemd service. See docs/DEPLOY.md and
+# docs/decisions/0010.
+#
+# Install: sudo cp deploy/systemd/*.service /etc/systemd/system/
+#          sudo systemctl daemon-reload && sudo systemctl enable --now panel-api
+# Logs:    journalctl -u panel-api -f
+[Unit]
+Description=Server control panel: control API
+Documentation=https://github.com/Pigoennn/server-control-panel/blob/main/docs/DEPLOY.md
+# The socket proxy is a Docker container, so start once Docker is up. The API
+# doesn't call Docker until the first request, so it doesn't wait for the
+# proxy container itself.
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/panel-api
+# The repo-root .env: API_TOKEN, DOCKER_HOST, MC_RCON_PASSWORD, ... systemd
+# reads it as root, so the file can be root-only (chmod 600).
+EnvironmentFile=/etc/server-control-panel/panel.env
+
+# A throwaway user that exists only while the service runs. It isn't in the
+# docker group, so the socket proxy (tcp://127.0.0.1:2375) is its only way to
+# reach Docker: a bug can't bypass the proxy's allowlist through the raw
+# socket. DynamicUser also makes most of the filesystem read-only and gives
+# the service its own /tmp.
+DynamicUser=yes
+# No access to /home or /dev, and no Linux capabilities at all.
+ProtectHome=yes
+PrivateDevices=yes
+CapabilityBoundingSet=
+# It only needs TCP (HTTP on localhost, the proxy, RCON).
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+Restart=on-failure
+RestartSec=5s
+# The API gives in-flight requests 10 s to finish on SIGTERM.
+TimeoutStopSec=15s
+
+[Install]
+WantedBy=multi-user.target
