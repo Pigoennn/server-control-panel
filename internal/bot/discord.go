@@ -72,6 +72,16 @@ func Commands(games []string, guild bool) []*discordgo.ApplicationCommand {
 // stops any polling still going.
 func Attach(ctx context.Context, s *discordgo.Session, b *Bot, logger *slog.Logger) {
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		// A panic in any goroutine ends the whole program, and discordgo
+		// doesn't catch them. Recover here, per interaction, so a bug hit
+		// by one button press is logged instead of taking the bot down for
+		// everyone. net/http does the same for each request.
+		defer func() {
+			if v := recover(); v != nil {
+				logger.Error("panic handling interaction", "panic", v, "type", i.Type)
+			}
+		}()
+
 		user := userID(i.Interaction)
 		if user == "" {
 			logger.Error("interaction without a user", "type", i.Type)

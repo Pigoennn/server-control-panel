@@ -244,8 +244,8 @@ func (s *server) stopGame(w http.ResponseWriter, r *http.Request) {
 }
 
 // blockedByPlayers checks whether anyone may be on game before a stop. It
-// returns true if it has already written the response (409 for a friend,
-// 501 for an admin until the countdown exists), so the caller must return.
+// returns true if it has already written the response (409 for a friend;
+// 202 for an admin, having started the countdown), so the caller must return.
 // It returns false, having written nothing, when nobody is online and the
 // stop can go ahead.
 //
