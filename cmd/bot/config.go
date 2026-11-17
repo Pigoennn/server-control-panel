@@ -11,7 +11,7 @@ import (
 // .env, shared with the API).
 type config struct {
 	DiscordToken string          // DISCORD_TOKEN, required
-	DevGuildID   string          // DISCORD_DEV_GUILD_ID, optional: register commands to this test server only
+	GuildID      string          // DISCORD_GUILD_ID: the server the bot lives in; empty registers global DM commands instead
 	Allowed      map[string]bool // ALLOWED_IDS plus ADMIN_IDS: who may use the bot
 	Admins       map[string]bool // ADMIN_IDS
 	APIURL       string          // API_URL, default http://127.0.0.1:8080
@@ -24,13 +24,17 @@ type config struct {
 func loadConfig(getenv func(string) string) (config, error) {
 	cfg := config{
 		DiscordToken: getenv("DISCORD_TOKEN"),
-		DevGuildID:   strings.TrimSpace(getenv("DISCORD_DEV_GUILD_ID")),
+		GuildID:      strings.TrimSpace(getenv("DISCORD_GUILD_ID")),
 		APIURL:       orDefault(getenv("API_URL"), "http://127.0.0.1:8080"),
 		APIToken:     getenv("API_TOKEN"),
 		JoinAddress:  strings.TrimSpace(getenv("JOIN_ADDRESS")),
 	}
 
 	switch {
+	// The old name. Ignoring it would quietly register the commands
+	// globally instead of in the server, so refuse to start instead.
+	case getenv("DISCORD_DEV_GUILD_ID") != "":
+		return config{}, errors.New("DISCORD_DEV_GUILD_ID was renamed to DISCORD_GUILD_ID: rename it in .env")
 	case cfg.DiscordToken == "":
 		return config{}, errors.New("DISCORD_TOKEN is required")
 	case cfg.APIToken == "":
@@ -107,7 +111,7 @@ func isUserID(s string) bool {
 func (c config) LogValue() slog.Value {
 	return slog.GroupValue(
 		slog.String("api_url", c.APIURL),
-		slog.String("dev_guild_id", c.DevGuildID),
+		slog.String("guild_id", c.GuildID),
 		slog.String("join_address", c.JoinAddress),
 		slog.Int("allowed", len(c.Allowed)),
 		slog.Int("admins", len(c.Admins)),

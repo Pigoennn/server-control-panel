@@ -22,14 +22,14 @@ const handlerTimeout = editWindow + time.Minute
 // Commands returns the slash commands to register. games are the choices
 // for the game option of /start and /stop.
 //
-// In production (devGuild false) they're global commands for a
-// user-installed app, usable only in a DM with the bot. In development
-// they're registered to the test server instead, where updates show up
-// at once rather than up to an hour later.
-func Commands(games []string, devGuild bool) []*discordgo.ApplicationCommand {
+// With guild true (the normal setup, see docs/decisions/0008) they're
+// registered to the one server the bot lives in, where updates show up at
+// once. With guild false they're global commands for a user-installed app,
+// usable only in a DM with the bot, and updates take up to an hour.
+func Commands(games []string, guild bool) []*discordgo.ApplicationCommand {
 	integrations := []discordgo.ApplicationIntegrationType{discordgo.ApplicationIntegrationUserInstall}
 	contexts := []discordgo.InteractionContextType{discordgo.InteractionContextBotDM}
-	if devGuild {
+	if guild {
 		integrations = []discordgo.ApplicationIntegrationType{discordgo.ApplicationIntegrationGuildInstall}
 		contexts = []discordgo.InteractionContextType{discordgo.InteractionContextGuild}
 	}

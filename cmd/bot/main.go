@@ -76,15 +76,15 @@ func run(logger *slog.Logger) error {
 	// After Open, s.State.User is the bot's own user, whose ID is the
 	// application ID that commands are registered under.
 	appID := s.State.User.ID
-	cmds := bot.Commands(names, cfg.DevGuildID != "")
+	cmds := bot.Commands(names, cfg.GuildID != "")
 	// BulkOverwrite replaces the whole set, so a command removed here
 	// disappears from Discord too. guildID "" means global.
-	if _, err := s.ApplicationCommandBulkOverwrite(appID, cfg.DevGuildID, cmds, discordgo.WithContext(ctx)); err != nil {
+	if _, err := s.ApplicationCommandBulkOverwrite(appID, cfg.GuildID, cmds, discordgo.WithContext(ctx)); err != nil {
 		return fmt.Errorf("register commands: %w", err)
 	}
-	where := "globally (can take up to an hour to show)"
-	if cfg.DevGuildID != "" {
-		where = "to dev server " + cfg.DevGuildID
+	where := "globally, for DMs (can take up to an hour to show)"
+	if cfg.GuildID != "" {
+		where = "to server " + cfg.GuildID
 	}
 	logger.Info("bot ready", "user", s.State.User.Username, "games", names, "commands", where)
 

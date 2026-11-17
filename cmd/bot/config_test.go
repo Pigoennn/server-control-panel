@@ -48,22 +48,22 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if cfg.DiscordToken != discordToken || cfg.APIToken != apiToken {
 		t.Errorf("tokens not copied")
 	}
-	if cfg.DevGuildID != "" || cfg.JoinAddress != "" {
-		t.Errorf("optional fields set: DevGuildID=%q JoinAddress=%q", cfg.DevGuildID, cfg.JoinAddress)
+	if cfg.GuildID != "" || cfg.JoinAddress != "" {
+		t.Errorf("optional fields set: GuildID=%q JoinAddress=%q", cfg.GuildID, cfg.JoinAddress)
 	}
 }
 
 func TestLoadConfigOverrides(t *testing.T) {
 	vars := valid()
 	vars["API_URL"] = "http://127.0.0.1:9000"
-	vars["DISCORD_DEV_GUILD_ID"] = "444444444444444444"
+	vars["DISCORD_GUILD_ID"] = "444444444444444444"
 	vars["JOIN_ADDRESS"] = "scooter-swizzle.tun.ply.gg"
 	cfg, err := loadConfig(env(vars))
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
-	if cfg.APIURL != "http://127.0.0.1:9000" || cfg.DevGuildID != "444444444444444444" || cfg.JoinAddress != "scooter-swizzle.tun.ply.gg" {
-		t.Errorf("overrides ignored: APIURL=%q DevGuildID=%q JoinAddress=%q", cfg.APIURL, cfg.DevGuildID, cfg.JoinAddress)
+	if cfg.APIURL != "http://127.0.0.1:9000" || cfg.GuildID != "444444444444444444" || cfg.JoinAddress != "scooter-swizzle.tun.ply.gg" {
+		t.Errorf("overrides ignored: APIURL=%q GuildID=%q JoinAddress=%q", cfg.APIURL, cfg.GuildID, cfg.JoinAddress)
 	}
 }
 
@@ -173,4 +173,10 @@ func TestConfigLogValueHidesTokens(t *testing.T) {
 	if !strings.Contains(out, `"allowed":2`) || !strings.Contains(out, `"admins":1`) {
 		t.Errorf("log line missing the list sizes: %s", out)
 	}
+}
+
+func TestOldGuildVariable(t *testing.T) {
+	vars := valid()
+	vars["DISCORD_DEV_GUILD_ID"] = "444444444444444444"
+	wantErr(t, vars, "DISCORD_DEV_GUILD_ID was renamed to DISCORD_GUILD_ID: rename it in .env")
 }
