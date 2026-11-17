@@ -18,13 +18,13 @@ var (
 	admin  = Actor{ID: "222222222222222222", Admin: true}
 )
 
-// fakeAPI starts a test HTTP server that answers every request with status
+// testServer starts a test HTTP server that answers every request with status
 // and body. The function it returns gives the last request the server saw.
 //
 // The handler runs on the server's goroutine and the test reads the request
 // on its own, so the request sits behind a mutex. The race detector doesn't
 // count "the response arrived over TCP" as synchronisation.
-func fakeAPI(t *testing.T, status int, body string) (APIClient, func() *http.Request) {
+func testServer(t *testing.T, status int, body string) (APIClient, func() *http.Request) {
 	t.Helper()
 	var (
 		mu   sync.Mutex
@@ -47,7 +47,7 @@ func fakeAPI(t *testing.T, status int, body string) (APIClient, func() *http.Req
 }
 
 func TestClientSendsHeaders(t *testing.T) {
-	c, last := fakeAPI(t, http.StatusOK, `{"name":"minecraft","state":"stopped"}`)
+	c, last := testServer(t, http.StatusOK, `{"name":"minecraft","state":"stopped"}`)
 
 	if _, err := c.Game(context.Background(), admin, "minecraft"); err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestClientRoutes(t *testing.T) {
 			if tt.name == "games" {
 				body = `[` + body + `]`
 			}
-			c, last := fakeAPI(t, http.StatusOK, body)
+			c, last := testServer(t, http.StatusOK, body)
 			if err := tt.call(c); err != nil {
 				t.Fatal(err)
 			}
@@ -108,7 +108,7 @@ func TestClientRoutes(t *testing.T) {
 }
 
 func TestClientEscapesName(t *testing.T) {
-	c, last := fakeAPI(t, http.StatusNotFound, `{"error":"unknown game"}`)
+	c, last := testServer(t, http.StatusNotFound, `{"error":"unknown game"}`)
 	c.Game(context.Background(), friend, "../healthz")
 	if last().URL.Path != "/games/../healthz" || last().URL.RawPath != "/games/..%2Fhealthz" {
 		t.Errorf("path = %q (raw %q), want the slash escaped", last().URL.Path, last().URL.RawPath)
@@ -116,7 +116,7 @@ func TestClientEscapesName(t *testing.T) {
 }
 
 func TestClientDecodesGame(t *testing.T) {
-	c, _ := fakeAPI(t, http.StatusOK, `[
+	c, _ := testServer(t, http.StatusOK, `[
 		{"name":"minecraft","state":"running","players":[],"stopping_at":"2000-01-01T00:05:00Z"},
 		{"name":"vanilla","state":"stopped"}
 	]`)
@@ -151,7 +151,7 @@ func TestClientDecodesGame(t *testing.T) {
 }
 
 func TestClientStopCountdown(t *testing.T) {
-	c, _ := fakeAPI(t, http.StatusAccepted, `{"name":"minecraft","state":"running","stopping_at":"2000-01-01T00:05:00Z"}`)
+	c, _ := testServer(t, http.StatusAccepted, `{"name":"minecraft","state":"running","stopping_at":"2000-01-01T00:05:00Z"}`)
 	g, countdown, err := c.Stop(context.Background(), admin, "minecraft")
 	if err != nil {
 		t.Fatal(err)
@@ -163,7 +163,7 @@ func TestClientStopCountdown(t *testing.T) {
 		t.Error("StoppingAt not decoded")
 	}
 
-	c, _ = fakeAPI(t, http.StatusOK, `{"name":"minecraft","state":"stopped"}`)
+	c, _ = testServer(t, http.StatusOK, `{"name":"minecraft","state":"stopped"}`)
 	_, countdown, err = c.Stop(context.Background(), friend, "minecraft")
 	if err != nil {
 		t.Fatal(err)
@@ -174,7 +174,7 @@ func TestClientStopCountdown(t *testing.T) {
 }
 
 func TestClientPlayersOnlineError(t *testing.T) {
-	c, _ := fakeAPI(t, http.StatusConflict, `{"error":"players are online","players":["Steve","Alex"]}`)
+	c, _ := testServer(t, http.StatusConflict, `{"error":"players are online","players":["Steve","Alex"]}`)
 	_, _, err := c.Stop(context.Background(), friend, "minecraft")
 
 	var apiErr *APIError
@@ -190,7 +190,7 @@ func TestClientPlayersOnlineError(t *testing.T) {
 }
 
 func TestClientErrorWithoutJSON(t *testing.T) {
-	c, _ := fakeAPI(t, http.StatusBadGateway, `<html>bad gateway</html>`)
+	c, _ := testServer(t, http.StatusBadGateway, `<html>bad gateway</html>`)
 	_, err := c.Games(context.Background(), friend)
 
 	var apiErr *APIError
@@ -219,7 +219,7 @@ func TestClientAPIDown(t *testing.T) {
 }
 
 func TestClientNeverLogsToken(t *testing.T) {
-	c, _ := fakeAPI(t, http.StatusConflict, `{"error":"players are online"}`)
+	c, _ := testServer(t, http.StatusConflict, `{"error":"players are online"}`)
 	_, _, err := c.Stop(context.Background(), friend, "minecraft")
 	if err == nil || strings.Contains(err.Error(), testToken) {
 		t.Errorf("409 error %v contains the token", err)
