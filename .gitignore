@@ -23,3 +23,4 @@ web/dist/
 # Mods downloaded by hand because their authors block automatic download.
 # Their licences forbid redistribution, and this repo is public.
 deploy/minecraft/downloads/
+deploy/minecraft-create/downloads/

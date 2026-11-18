@@ -1,0 +1,111 @@
+# Minecraft server running the custom "All in one: Create but I lowkey
+# add a few more mods" CurseForge pack
+# (Minecraft 1.21.1, NeoForge). See docs/decisions/0002.
+#
+# Start/stop/status with deploy/mc.sh rather than calling Compose directly.
+# The world lives in the named volume `minecraft-create-data`, which outlives the
+# container: `docker compose down` does not delete it.
+name: minecraft-create
+
+services:
+  minecraft:
+    # Java 21 is what Minecraft 1.21.1 needs. Never `latest`: an image update
+    # could otherwise switch Java under a working pack.
+    image: itzg/minecraft-server:java21
+    container_name: minecraft-create
+
+    environment:
+      EULA: "TRUE"
+      MOTD: "§6peepee poopoo"
+
+      # --- Modpack ---------------------------------------------------------
+      # AUTO_CURSEFORGE reads the exported zip's manifest, installs the right
+      # loader (NeoForge here) and downloads every mod by its CurseForge ID.
+      TYPE: AUTO_CURSEFORGE
+      CF_MODPACK_ZIP: /modpacks/create-pack.zip
+      # The image requires a slug even for an unpublished pack. Any name works.
+      CF_SLUG: custom
+      # No CF_API_KEY: the image ships its own key on Java 17+ tags. To use
+      # your own instead, add `CF_API_KEY: ${CF_API_KEY}` here and put the key
+      # in .env with every `$` doubled to `$$`.
+      #
+      # Mods that crash a server (client-only ones the image doesn't already
+      # skip) go here as CurseForge project slugs, one per line, each with a
+      # comment saying why. Set CF_FORCE_SYNCHRONIZE: "true" for one start
+      # after changing this list.
+      CF_EXCLUDE_MODS: ""
+
+      # --- Memory: shrink both numbers for the 8GB laptop -------------------
+      # Java heap. A 359-mod pack may need more; watch the first boot.
+      MEMORY: 6G
+
+      # --- Who can join ----------------------------------------------------
+      # Whitelist on: the playit address is public. Ops add friends in-game
+      # with `/whitelist add <name>`. MERGE keeps those additions across
+      # restarts instead of resetting the list to just these names.
+      ENABLE_WHITELIST: "TRUE"
+      ENFORCE_WHITELIST: "TRUE"
+      WHITELIST: |
+        Pigoenn
+        probitbit
+      EXISTING_WHITELIST_FILE: MERGE
+      OPS: |
+        Pigoenn
+        probitbit
+      EXISTING_OPS_FILE: MERGE
+
+      # RCON lets the control API ask who's online. The image enables RCON
+      # already; this sets the password from .env next to this file (cp
+      # .env.example .env). Compose refuses to start without it.
+      RCON_PASSWORD: ${MC_RCON_PASSWORD:?set MC_RCON_PASSWORD in .env next to this file}
+
+    volumes:
+      # World, configs and installed mods. Named (not a bind mount), so files
+      # stay owned by the container's user and out of the repo.
+      - minecraft-create-data:/data
+      # The exported pack, read-only.
+      - ./modpack:/modpacks:ro
+      # Mods whose authors block automatic download: if the logs list any,
+      # download them by hand into ./downloads (gitignored) and start again.
+      - ./downloads:/downloads
+
+    ports:
+      # Localhost only. Docker-published ports bypass ufw, so a plain
+      # "25565:25565" would open the server to the whole LAN on the laptop.
+      # Friends come in through playit (host network, so it sees localhost).
+      - "127.0.0.1:25565:25565"
+      # RCON for the API's player list. Localhost only: RCON can run any
+      # server command, so it must never be reachable from outside.
+      - "127.0.0.1:25575:25575"
+
+    # Container limit: heap plus Java's own off-heap memory (class metadata,
+    # JIT code cache, threads). With 359 mods that overhead is ~1-2GB: at 7g
+    # an idle server already sat at 6.8/7GB, one step from an OOM kill.
+    # Shrink together with MEMORY for the laptop.
+    mem_limit: 8g
+
+    # The image's health check (mc-health) only reports healthy once players
+    # can join. A big modpack takes minutes to boot, so don't judge it before
+    # 5 minutes, or it shows "unhealthy" while still loading.
+    healthcheck:
+      test: ["CMD", "mc-health"]
+      start_period: 5m
+
+    # Saving a modded world can take a while. Docker's default 10s would
+    # kill Java mid-save and risk corrupting chunks.
+    stop_grace_period: 2m
+
+    # Starting is always deliberate (mc.sh now, the API later). A server that
+    # restarted itself would fight the "one game at a time" rule.
+    restart: "no"
+
+    # Lets `docker attach minecraft` give a live server console when
+    # debugging (detach with Ctrl-P Ctrl-Q, not Ctrl-C, which stops it).
+    stdin_open: true
+    tty: true
+
+volumes:
+  minecraft-create-data:
+    # Fixed name (no "minecraft_" prefix), so mc.sh, the world import and the
+    # milestone 2 API can refer to it directly.
+    name: minecraft-create-data
