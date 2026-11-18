@@ -61,6 +61,13 @@ func run(logger *slog.Logger) error {
 			Query:       query,
 			StopTimeout: time.Minute, // stop_grace_period in deploy/minecraft-vanilla
 		}),
+		minecraft.New(minecraft.Config{
+			Name:        "minecraft-create",
+			Container:   "minecraft-create",
+			Docker:      dc,
+			Query:       query,
+			StopTimeout: 2 * time.Minute, // stop_grace_period in deploy/minecraft-create
+		}),
 	}
 
 	srv := &http.Server{
