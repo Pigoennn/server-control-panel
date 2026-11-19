@@ -36,7 +36,7 @@ services:
       CF_EXCLUDE_MODS: ""
 
       # Re-read the modpack zip on this start. Off normally; turned on once
-      # from the shell after replacing the zip (see docs/DEPLOY.md).
+      # from the shell after replacing the zip (see docs/RUNBOOK.md).
       CF_FORCE_SYNCHRONIZE: ${CF_FORCE_SYNCHRONIZE:-false}
 
       # --- Memory: shrink both numbers for the 8GB laptop -------------------

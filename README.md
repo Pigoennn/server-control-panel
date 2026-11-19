@@ -2,7 +2,7 @@
 
 A self-hosted control panel that lets my friends start, stop and check my home game servers. The plan is in [`docs/PLAN.md`](docs/PLAN.md), and the decisions behind it are in [`docs/decisions/`](docs/decisions/).
 
-The sections below run everything by hand on one machine, for development. To set it up on the game server, with the API and bot as systemd services, see [`docs/DEPLOY.md`](docs/DEPLOY.md).
+The sections below run everything by hand on one machine, for development. To set it up on the game server, with the API and bot as systemd services, see [`docs/DEPLOY.md`](docs/DEPLOY.md). For day-to-day jobs on the server (watching logs, adding mods, updating a modpack, resetting a world, adding friends or a new game), see [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
 
 ## Running the Minecraft server
 
